@@ -93,7 +93,7 @@ greg.ross.visualisation.MagicTable.prototype.draw = function(data, options)
     
     tableModel.recalculateMinMaxValues();
     
-    var fisheyeTable = new greg.ross.visualisation.FisheyeTable(tableModel, tablePositionX, tablePositionY, tableWidth, tableHeight, options.tableTitle, this.containerElement);
+    var fisheyeTable = new greg.ross.visualisation.FisheyeTable(tableModel, tablePositionX, tablePositionY, tableWidth, tableHeight, options.tableTitle, this.containerElement, 1);
     
     fisheyeTable.setBarFill(options.enableBarFill);
     fisheyeTable.enableFisheye(options.enableFisheye);

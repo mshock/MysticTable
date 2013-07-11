@@ -29,12 +29,81 @@ greg.ross.visualisation.barfillCheckBoxClickEventHandler = function(checkbox)
 	checkbox.fisheyeTable.barFillEnabled = checkbox.checked;
 	checkbox.fisheyeTable.redraw();
 }
-
 mshock.visualisation.pageButtonClickEventHandler = function(button) 
 {
-	// TODO: fetch and display next page
-	//button.fisheyeTable.
+	//alert(button.fisheyeTable.tableModel.rowCount);
+	var pageSpan = document.getElementById('currentPage');
+	var nextPage;
+
+	if (button.innerHTML == '&gt;') {
+		nextPage = Math.floor(pageSpan.innerHTML) + 1;
+	}
+	else {
+		nextPage = Math.floor(pageSpan.innerHTML) - 1;
+	}
+
+	// TODO: hide next '>' button on last page
+	
+	
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.open('GET','?page=' + nextPage,false);
+	xmlhttp.send();
+	
+	// retrieve stringification of multidimensional array
+	//alert(xmlhttp.responseText);
+	var response = eval( xmlhttp.responseText );
+    
+	var data = new google.visualization.DataTable();
+	var columns = response[0].length;
+	data.addColumn('string','feed');
+	var z;
+	for (z = 0; z < columns; z++) {
+		data.addColumn('number',response[0][z]);
+	}
+	var rows = response[1].length;
+	data.addRows(rows);
+	for (z = 0; z < rows; z++) {
+		data.setCell(response[1][z][0],response[1][z][1],response[1][z][2]);
+	}
+	
+	
+    var i = rows - 1;
+    var j;
+    var columnWidths = [{column : 0, width : 300}];
+    
+    do 
+    {
+        j = columns - 1;
+        do 
+        {
+        	button.fisheyeTable.tableModel.setContentAt(i, j, data.getFormattedValue(i, j));
+        }
+        while (j-- > 0)
+    }
+    while (i-- > 0)
+	
+	i = columnWidths.length - 1;
+	do
+	{
+		button.fisheyeTable.tableModel.setColumnWidth(columnWidths[i].column, columnWidths[i].width);
+	}
+	while (i-- > 0)
+    
+	button.fisheyeTable.tableModel.recalculateMinMaxValues();
+  
 	button.fisheyeTable.redraw();
+	
+	pageSpan = document.getElementById('currentPage');	
+    pageSpan.innerHTML = nextPage;
+    pageSpan.value = nextPage;
+    
+	
+	if (nextPage == 1) {
+		button.style.visibility = 'hidden';
+	}
+	else if (nextPage >= 2) {
+		document.getElementById('prevPage').style.visibility = 'visible';
+	}
 }
 
 /**
@@ -55,12 +124,15 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
 {
 	var me = this;
 	var id = allocateId();
+	
+	
 	this.targetDiv;
 
 	this.fisheyeEnabled = true;
 	this.barFillEnabled = false;
 	this.rowGradientEnabled = false;
 	this.autoSize = false;
+	this.tableModel = tableModel;
 	
 	var DEFAULT_FISHEYE_MARGIN = 43;
 	var fisheyeLeftMargin = DEFAULT_FISHEYE_MARGIN;
@@ -84,6 +156,7 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
 	var contentColumnCount;
 	var contentRowCount;
 	var controlPanel;
+	var currentPage = 1;
 	
 	var bufferContext = null;
 	var canvasContext = null;
@@ -230,6 +303,7 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
     function init()
     {
 		var t = me.fisheyeEnabled ? 1 : 0;
+				
 		contentColumnCount = (tableModel.columnCount - tableModel.rowHeaderCount * t);
 		contentRowCount = (tableModel.rowCount - tableModel.columnHeaderCount * t);
 		
@@ -241,7 +315,7 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
         
         if (!targetDiv) 
             return;
-			
+		
 		adjustTableMarginForCellDimensions();
         setTableSize();
         createTableCanvas(targetDiv, tableWidth, tableHeight);
@@ -348,12 +422,17 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
 		var form = document.createElement("form");
 		form.id = "fisheyeTableForm";
 
+		// mshock: disabled fisheye temporarily for large data sets
 		//createCheckBox(form, "Fisheye", "greg.ross.visualisation.fisheyeCheckBoxClickEventHandler(this)", me.fisheyeEnabled);
 		createCheckBox(form, "Bar fill", "greg.ross.visualisation.barfillCheckBoxClickEventHandler(this)", me.barFillEnabled);
 		
 		// mshock: added pagination control buttons
-		
 		createPageButton(form,'<',"mshock.visualisation.pageButtonClickEventHandler(this)");
+		var pageCounter = document.createElement('span');
+		pageCounter.id = 'currentPage';
+		pageCounter.innerHTML = currentPage;
+		pageCounter.value = currentPage;
+		form.appendChild(pageCounter);
 		createPageButton(form,'>',"mshock.visualisation.pageButtonClickEventHandler(this)");
 		
 		
@@ -367,12 +446,17 @@ greg.ross.visualisation.FisheyeTable = function(tableModel, x, y, width, height,
 		pageButton.innerHTML = label;
 		pageButton.setAttribute('type', 'button');
 		pageButton.fisheyeTable = me;
+		//pageButton.setAttribute('onClick', "paginate(['currentPage'],[" + functionSignature + "]);");
 		pageButton.setAttribute('onClick', functionSignature);
-		
 		// mshock: disable back button on first page
 		// TODO: disable forward button on last page
-		if ( label == '<' ) 
+		if ( label == '<' ) {
 			pageButton.style.visibility = 'hidden';
+			pageButton.id = 'prevPage';
+		}
+		else {
+			pageButton.id = 'nextPage';
+		}
 		
 		form.appendChild(pageButton);
 		

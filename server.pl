@@ -50,6 +50,6 @@ sub handle_request {
 		}
 
 
-		print `perl MagicTable.pl`;
+		print `perl MysticTable.pm`;
 
 }

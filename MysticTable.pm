@@ -14,10 +14,19 @@ my $cfg = new Config::Simple('dbs.conf');
 my $sched_db = $cfg->param( -block => 'SCHED' );
 my $dbh_sched = init_handle($sched_db);
 my $q = new CGI;
-my $x = new CGI::Ajax( 'ajax_func' => \&perl_func );
-#my $html = main();
-#my $html = $x->build_html( $q, \&main );
-print "HTTP/1.0 200 OK\r\n", $x->build_html( $q, \&main );
+my $x = new CGI::Ajax( 'paginate' => \&paginate );
+
+my $page = $q->param('page');
+warn $page;
+
+
+if (defined $page) {
+	print paginate($page);
+}
+else {
+	print "HTTP/1.0 200 OK\r\n";
+	print $x->build_html( $q, \&main );
+}
 
 
 sub main {
@@ -61,7 +70,8 @@ sub gen_script {
 	}
 	
 	my $feeds_aref = $dbh_sched->selectall_arrayref( "
-    	select top 19 u.name, u.update_id from tqasched.dbo.updates u, tqasched.dbo.update_schedule us
+    	select distinct top 19 u.name, u.update_id 
+    	from tqasched.dbo.updates u, tqasched.dbo.update_schedule us
     	where
     	u.update_id = us.update_id
     	and us.enabled = 1
@@ -134,6 +144,44 @@ sub gen_script {
 SCRIPT
 
 	return $draw_vis;
+}
+
+sub paginate {
+	my $page = shift;
+	my $page_start = $page * 20 + 1;
+	my $page_end = $page_start + 19;
+	my @date_range = gen_range();
+	my $feeds_aref = $dbh_sched->selectall_arrayref("
+	select  rownum, name, update_id 
+	from (
+		select row_number() over (order by update_id) as rownum, name, update_id
+		from tqasched.dbo.updates
+    	where
+    	enabled = 1
+    ) as rowconstrainedresult
+	where rownum >= $page_start
+	and rownum < $page_end
+	order by rownum");
+	
+	# build multidimensional array AJAX return string
+	my ($row, $col) = (0,0);
+	my @cells;
+	for my $feed_aref (@$feeds_aref) {
+    	my ($rownum, $name, $id) = @$feed_aref;
+    	push @cells, "[$row,0,\"$name\"]";
+    	my $col = 1;
+    	for my $date (@date_range) {
+    		my ($val) = $dbh_sched->selectrow_array( "
+    			select str(cast(hist_epoch - sched_epoch as float) / 3600, 4, 2)  from update_history u, update_schedule s where
+				feed_date = '$date' and u.update_id = $id and u.update_id = s.update_id and s.sched_id = u.sched_id
+    		" );
+    		$val = 'null' unless defined $val;
+    		push @cells, "[$row,$col,$val]";
+    		$col++;	
+    	}
+    	$row++;
+    }
+    return '[[' . join(',',@date_range) . '],[' .  join(',',@cells) . ']]';	
 }
 
 
