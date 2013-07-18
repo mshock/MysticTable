@@ -30,7 +30,7 @@ along with Magic Table.  If not, see <http://www.gnu.org/licenses/>.
 greg.ross.visualisation.DefaultCellRenderer = function(tableModel, cellAlignment, colourRamp)
 {
 	var colourGradient;
-	var defaultCellBackgroundColour = 'rgb(255, 255, 255)';
+	var defaultCellBackgroundColour = 'rgb(200, 200, 200)';
 	var gridColour = 'rgb(0, 0, 0)';
 	
 	function init()
@@ -46,6 +46,10 @@ greg.ross.visualisation.DefaultCellRenderer = function(tableModel, cellAlignment
 		var font = "sans";
 	  	var fontsize = 10;
 		
+	  	if (sValue == "NaN") {
+	  		sValue = "";
+	  	}
+	  	
 		if (greg.ross.visualisation.CanvasTextFunctions.measure(font, fontsize, sValue) < width && !fisheyeEnabled) 
 		{
 			var h = greg.ross.visualisation.CanvasTextFunctions.descent(font, fontsize) + fontsize;

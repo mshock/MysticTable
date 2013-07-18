@@ -6,9 +6,6 @@ use CGI::Ajax;
 use DBI;
 use Config::Simple;
 
-
-#print join "\n", gen_range() and exit;
-
 my $cfg = new Config::Simple('dbs.conf');
 
 my $sched_db = $cfg->param( -block => 'SCHED' );
@@ -17,8 +14,6 @@ my $q = new CGI;
 my $x = new CGI::Ajax( 'paginate' => \&paginate );
 
 my $page = $q->param('page');
-warn $page;
-
 
 if (defined $page) {
 	print paginate($page);
@@ -44,7 +39,7 @@ sub main {
 			},
 			{
 				-type => 'text/javascript',
-				-src => 'http://www.google.com/jsapi'
+				-src => 'google_jsapi.js'
 			},
 			{
 				-type => 'text/javascript',
@@ -61,16 +56,17 @@ sub main {
 sub gen_script {
 	
 	
-	
+	my $set_cells = '';
 	my @date_range = gen_range();
 	my $num_cols = scalar @date_range;
-	my $add_cols = "data.addColumn('string','feed');\n";
+	my $add_cols = "data.addColumn('string','Feed Name');\n";
 	for my $date (@date_range) {
-		$add_cols .= "data.addColumn('number','$date');\n";
+		$date =~ m/(\d{4})(\d{2})(\d{2})/;
+		$add_cols .= "data.addColumn('number','$2/$3/$1');\n";
 	}
 	
 	my $feeds_aref = $dbh_sched->selectall_arrayref( "
-    	select distinct top 19 u.name, u.update_id 
+    	select distinct top 18 u.name, u.update_id 
     	from tqasched.dbo.updates u, tqasched.dbo.update_schedule us
     	where
     	u.update_id = us.update_id
@@ -78,15 +74,18 @@ sub gen_script {
     	order by update_id asc  
     " );
     my $num_rows = scalar @$feeds_aref;
-    my $set_cells = '';
-    my $row = 0;
+    
+    my $row = 1;
     for my $feed_aref (@$feeds_aref) {
     	my ($name, $id) = @$feed_aref;
     	$set_cells .= "data.setCell($row,0,'$name');\n";
     	my $col = 1;
     	for my $date (@date_range) {
     		my ($val) = $dbh_sched->selectrow_array( "
-    			select str(cast(hist_epoch - sched_epoch as float) / 3600, 4, 2)  from update_history u, update_schedule s where
+    			select str(cast(hist_epoch - sched_epoch as float) / 3600, 4, 2)  
+    			from 
+    			update_history u, update_schedule s 
+    			where
 				feed_date = '$date' and u.update_id = $id and u.update_id = s.update_id and s.sched_id = u.sched_id
     		" );
     		$val = 'null' unless defined $val;
@@ -96,14 +95,13 @@ sub gen_script {
     	$row++;
     }
 	
-	
 	my $draw_vis = <<SCRIPT;
     google.load("visualization", "1");
     google.setOnLoadCallback(drawVisualization);
 	
     function drawVisualization()
     {
-      var rows = $num_rows;
+      var rows = $num_rows + 1;
       var columns = $num_cols;
       var data = new google.visualization.DataTable();
       $add_cols
@@ -119,14 +117,14 @@ sub gen_script {
       options.enableBarFill = false;
       options.pageSize = 19;
       options.defaultRowHeight = 25;
-      options.columnWidths = [{column : 0, width : 300}];
-      options.defaultColumnWidth = 60;
+      options.columnWidths = [{column : 0, width : 325}];
+      options.defaultColumnWidth = 100;
       options.rowHeaderCount = 1;
-      options.columnHeaderCount = 0;
+      options.columnHeaderCount = 1;
       options.tablePositionX = 50;
       options.tablePositionY = 50;
       options.tableHeight = 492;
-      options.tableWidth = 1000;
+      options.tableWidth = 1100;
       options.colourRamp = getColourRamp();
 
       vis.draw(data, options);
@@ -134,12 +132,14 @@ sub gen_script {
   
   function getColourRamp()
   {
-      var colour1 = {red:0, green:0, blue:255};
-      var colour2 = {red:0, green:255, blue:255};
-      var colour3 = {red:0, green:255, blue:0};
+      var colour1 = {red:0, green:255, blue:0};
+      var colour2 = {red:255, green:255, blue:0};
+      var colour3 = {red:255, green:0, blue:0};
+      /*
       var colour4 = {red:255, green:255, blue:0};
       var colour5 = {red:255, green:0, blue:0};
-      return [colour1, colour2, colour3, colour4, colour5];
+      */
+      return [colour1, colour2, colour3];
   }
 SCRIPT
 
@@ -151,6 +151,7 @@ sub paginate {
 	my $page_start = $page * 20 + 1;
 	my $page_end = $page_start + 19;
 	my @date_range = gen_range();
+	
 	my $feeds_aref = $dbh_sched->selectall_arrayref("
 	select  rownum, name, update_id 
 	from (
@@ -181,6 +182,10 @@ sub paginate {
     	}
     	$row++;
     }
+    for my $date (@date_range) {
+		$date =~ m/(\d{4})(\d{2})(\d{2})/;
+		$date = "'$2/$3/$1'";
+	}
     return '[[' . join(',',@date_range) . '],[' .  join(',',@cells) . ']]';	
 }
 

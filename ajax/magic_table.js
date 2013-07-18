@@ -78,7 +78,8 @@ greg.ross.visualisation.MagicTable.prototype.draw = function(data, options)
         j = columns - 1;
         do 
         {
-            tableModel.setContentAt(i, j, data.getFormattedValue(i, j));
+        	tableModel.setContentAt(i, j, i == 0 ? data.getColumnLabel(j) : data.getFormattedValue(i, j));
+        	
         }
         while (j-- > 0)
     }

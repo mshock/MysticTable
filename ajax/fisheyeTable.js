@@ -76,7 +76,8 @@ mshock.visualisation.pageButtonClickEventHandler = function(button)
         j = columns - 1;
         do 
         {
-        	button.fisheyeTable.tableModel.setContentAt(i, j, data.getFormattedValue(i, j));
+        	button.fisheyeTable.tableModel.setContentAt(i, j, i == 0 ? data.getColumnLabel(j) : data.getFormattedValue(i, j));
+        	//button.fisheyeTable.tableModel.setContentAt(i, j, data.getFormattedValue(i, j));
         }
         while (j-- > 0)
     }
